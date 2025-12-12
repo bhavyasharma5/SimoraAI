@@ -9,9 +9,10 @@ import {
   interpolate,
   spring,
   Sequence,
+  staticFile,
 } from 'remotion';
-import { Caption, CaptionStyle, Word } from '@/types';
-import { getCaptionStyle } from '@/lib/caption-styles';
+import { Caption, CaptionStyle, Word } from '../types';
+import { getCaptionStyle } from '../lib/caption-styles';
 
 interface CaptionedVideoProps {
   videoSrc: string;
@@ -35,7 +36,7 @@ export const CaptionedVideo: React.FC<CaptionedVideoProps> = ({
 
   return (
     <AbsoluteFill>
-      <Video src={videoSrc} />
+      <Video src={staticFile(videoSrc)} />
       {activeCaption && (
         <CaptionOverlay
           caption={activeCaption}
