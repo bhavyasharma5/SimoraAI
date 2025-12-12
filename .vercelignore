@@ -1,0 +1,13 @@
+whisper.cpp
+whisper-models
+node_modules
+.next
+out
+dist
+*.mp4
+*.mov
+*.avi
+sample/*.mp4
+public/outputs
+public/uploads
+

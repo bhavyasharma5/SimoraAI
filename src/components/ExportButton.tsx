@@ -2,8 +2,8 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Download, Loader2, Check, X, Sparkles } from 'lucide-react';
-import { Caption, CaptionStyle, RenderProgress } from '@/types';
+import { Download, Loader2, Check, X, Sparkles, Terminal } from 'lucide-react';
+import { Caption, CaptionStyle } from '@/types';
 import { cn } from '@/lib/utils';
 
 interface ExportButtonProps {
@@ -21,83 +21,25 @@ export const ExportButton: React.FC<ExportButtonProps> = ({
   duration,
   disabled,
 }) => {
-  const [isExporting, setIsExporting] = useState(false);
-  const [progress, setProgress] = useState<RenderProgress | null>(null);
   const [showModal, setShowModal] = useState(false);
 
-  const handleExport = async () => {
-    setIsExporting(true);
+  const handleExport = () => {
     setShowModal(true);
-    setProgress({
-      progress: 0,
-      currentFrame: 0,
-      totalFrames: Math.ceil(duration * 30),
-      status: 'rendering',
-    });
-
-    try {
-      const response = await fetch('/api/render', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          videoUrl,
-          captions,
-          captionStyle,
-          duration,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Export failed');
-      }
-
-      // Simulate progress for demo (in real implementation, use SSE or WebSocket)
-      for (let i = 0; i <= 100; i += 5) {
-        await new Promise((r) => setTimeout(r, 200));
-        setProgress({
-          progress: i,
-          currentFrame: Math.floor((i / 100) * duration * 30),
-          totalFrames: Math.ceil(duration * 30),
-          status: i < 100 ? 'rendering' : 'complete',
-        });
-      }
-
-      const result = await response.json();
-      
-      setProgress({
-        progress: 100,
-        currentFrame: Math.ceil(duration * 30),
-        totalFrames: Math.ceil(duration * 30),
-        status: 'complete',
-        outputPath: result.outputPath,
-      });
-
-      // Download the file
-      if (result.outputPath) {
-        const link = document.createElement('a');
-        link.href = result.outputPath;
-        link.download = 'captioned-video.mp4';
-        link.click();
-      }
-    } catch (error) {
-      console.error('Export error:', error);
-      setProgress({
-        progress: 0,
-        currentFrame: 0,
-        totalFrames: 0,
-        status: 'error',
-        error: 'Failed to export video. Please try again.',
-      });
-    } finally {
-      setIsExporting(false);
-    }
   };
+
+  const cliCommand = `npx remotion render src/remotion/index.ts CaptionedVideo output.mp4 \\
+  --props='${JSON.stringify({
+    videoSrc: videoUrl,
+    captions,
+    captionStyle,
+    durationInFrames: Math.ceil(duration * 30),
+  }).replace(/'/g, "\\'")}'`;
 
   return (
     <>
       <motion.button
         onClick={handleExport}
-        disabled={disabled || isExporting}
+        disabled={disabled}
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
         className={cn(
@@ -108,20 +50,11 @@ export const ExportButton: React.FC<ExportButtonProps> = ({
           'flex items-center justify-center gap-3'
         )}
       >
-        {isExporting ? (
-          <>
-            <Loader2 className="w-5 h-5 animate-spin" />
-            Exporting...
-          </>
-        ) : (
-          <>
-            <Download className="w-5 h-5" />
-            Export Video
-          </>
-        )}
+        <Download className="w-5 h-5" />
+        Export Video
       </motion.button>
 
-      {/* Export Modal */}
+      {/* Export Instructions Modal */}
       <AnimatePresence>
         {showModal && (
           <motion.div
@@ -129,12 +62,14 @@ export const ExportButton: React.FC<ExportButtonProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+            onClick={() => setShowModal(false)}
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="relative w-full max-w-md bg-slate-900 rounded-3xl p-8 border border-slate-700"
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-2xl bg-slate-900 rounded-3xl p-8 border border-slate-700 max-h-[90vh] overflow-y-auto"
             >
               <button
                 onClick={() => setShowModal(false)}
@@ -143,102 +78,106 @@ export const ExportButton: React.FC<ExportButtonProps> = ({
                 <X className="w-5 h-5" />
               </button>
 
-              <div className="text-center">
-                {progress?.status === 'rendering' && (
-                  <>
-                    <div className="relative w-24 h-24 mx-auto mb-6">
-                      <svg className="w-24 h-24 transform -rotate-90">
-                        <circle
-                          cx="48"
-                          cy="48"
-                          r="44"
-                          stroke="currentColor"
-                          strokeWidth="8"
-                          fill="none"
-                          className="text-slate-700"
-                        />
-                        <circle
-                          cx="48"
-                          cy="48"
-                          r="44"
-                          stroke="url(#gradient)"
-                          strokeWidth="8"
-                          fill="none"
-                          strokeLinecap="round"
-                          strokeDasharray={276.46}
-                          strokeDashoffset={276.46 * (1 - (progress.progress || 0) / 100)}
-                          className="transition-all duration-300"
-                        />
-                        <defs>
-                          <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                            <stop offset="0%" stopColor="#34D399" />
-                            <stop offset="100%" stopColor="#10B981" />
-                          </linearGradient>
-                        </defs>
-                      </svg>
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-2xl font-bold text-white">
-                          {Math.round(progress.progress || 0)}%
-                        </span>
-                      </div>
-                    </div>
-                    <h3 className="text-xl font-semibold text-white mb-2">
-                      Rendering your video
-                    </h3>
-                    <p className="text-slate-400">
-                      Frame {progress.currentFrame} of {progress.totalFrames}
-                    </p>
-                  </>
-                )}
+              <div className="mb-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-3 rounded-xl bg-gradient-to-br from-amber-400/20 to-orange-500/20 border border-amber-400/30">
+                    <Terminal className="w-6 h-6 text-amber-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold text-white">Export Video</h3>
+                    <p className="text-slate-400 text-sm">Render locally with CLI</p>
+                  </div>
+                </div>
 
-                {progress?.status === 'complete' && (
-                  <>
-                    <motion.div
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center"
-                    >
-                      <Check className="w-12 h-12 text-slate-900" />
-                    </motion.div>
-                    <h3 className="text-xl font-semibold text-white mb-2">
-                      Export Complete!
-                    </h3>
-                    <p className="text-slate-400 mb-6">
-                      Your video has been exported successfully.
-                    </p>
-                    <motion.div
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-green-400 to-emerald-500 text-slate-900 font-semibold cursor-pointer"
-                      onClick={() => setShowModal(false)}
-                    >
-                      <Sparkles className="w-5 h-5" />
-                      Done
-                    </motion.div>
-                  </>
-                )}
+                <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-400/30 mb-6">
+                  <p className="text-blue-300 text-sm leading-relaxed">
+                    <strong>Note:</strong> Video rendering requires FFmpeg and isn't available on serverless platforms. 
+                    Use the CLI command below to render locally on your machine.
+                  </p>
+                </div>
+              </div>
 
-                {progress?.status === 'error' && (
-                  <>
-                    <div className="w-24 h-24 mx-auto mb-6 bg-red-500/20 rounded-full flex items-center justify-center">
-                      <X className="w-12 h-12 text-red-400" />
+              <div className="space-y-6">
+                {/* Step 1 */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-6 h-6 rounded-full bg-amber-400 text-slate-900 flex items-center justify-center text-sm font-bold">
+                      1
                     </div>
-                    <h3 className="text-xl font-semibold text-white mb-2">
-                      Export Failed
-                    </h3>
-                    <p className="text-slate-400 mb-6">
-                      {progress.error || 'An error occurred during export.'}
-                    </p>
-                    <motion.button
-                      onClick={handleExport}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      className="px-6 py-3 rounded-xl bg-amber-400 text-slate-900 font-semibold"
+                    <h4 className="font-semibold text-white">Clone the repository</h4>
+                  </div>
+                  <div className="ml-8 p-3 rounded-lg bg-slate-800 font-mono text-sm text-green-400 overflow-x-auto">
+                    git clone https://github.com/bhavyasharma5/SimoraAI.git
+                    <br />
+                    cd SimoraAI
+                    <br />
+                    npm install
+                  </div>
+                </div>
+
+                {/* Step 2 */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-6 h-6 rounded-full bg-amber-400 text-slate-900 flex items-center justify-center text-sm font-bold">
+                      2
+                    </div>
+                    <h4 className="font-semibold text-white">Save your video and captions</h4>
+                  </div>
+                  <div className="ml-8 text-slate-300 text-sm">
+                    <p className="mb-2">Place your video in the project folder and create a <code className="px-2 py-1 rounded bg-slate-800 text-amber-400">props.json</code> file:</p>
+                    <div className="p-3 rounded-lg bg-slate-800 font-mono text-xs text-slate-300 overflow-x-auto">
+                      {JSON.stringify({
+                        videoSrc: './your-video.mp4',
+                        captions: captions.slice(0, 2),
+                        captionStyle,
+                        durationInFrames: Math.ceil(duration * 30),
+                      }, null, 2)}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Step 3 */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-6 h-6 rounded-full bg-amber-400 text-slate-900 flex items-center justify-center text-sm font-bold">
+                      3
+                    </div>
+                    <h4 className="font-semibold text-white">Run the render command</h4>
+                  </div>
+                  <div className="ml-8">
+                    <div className="p-3 rounded-lg bg-slate-800 font-mono text-sm text-green-400 overflow-x-auto">
+                      npx remotion render src/remotion/index.ts CaptionedVideo output.mp4 --props=props.json
+                    </div>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText('npx remotion render src/remotion/index.ts CaptionedVideo output.mp4 --props=props.json');
+                      }}
+                      className="mt-2 px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-sm transition-colors"
                     >
-                      Try Again
-                    </motion.button>
-                  </>
-                )}
+                      📋 Copy Command
+                    </button>
+                  </div>
+                </div>
+
+                {/* Output */}
+                <div className="p-4 rounded-xl bg-gradient-to-br from-green-400/10 to-emerald-500/10 border border-green-400/30">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles className="w-5 h-5 text-green-400" />
+                    <h4 className="font-semibold text-green-300">Your captioned video will be saved as:</h4>
+                  </div>
+                  <p className="text-green-400 font-mono text-sm ml-7">output.mp4</p>
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end">
+                <motion.button
+                  onClick={() => setShowModal(false)}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="px-6 py-3 rounded-xl bg-amber-400 text-slate-900 font-semibold"
+                >
+                  Got it!
+                </motion.button>
               </div>
             </motion.div>
           </motion.div>
@@ -247,4 +186,3 @@ export const ExportButton: React.FC<ExportButtonProps> = ({
     </>
   );
 };
-
