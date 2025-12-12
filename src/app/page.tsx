@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Wand2, Loader2, ArrowLeft, Sparkles, Github, ExternalLink } from 'lucide-react';
+import { Wand2, Loader2, ArrowLeft, Sparkles, Github, ExternalLink, AlertCircle } from 'lucide-react';
 import {
   VideoUploader,
   StyleSelector,
@@ -26,20 +26,33 @@ export default function Home() {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [seekTime, setSeekTime] = useState<number | undefined>(undefined);
-  const videoRef = useRef<HTMLVideoElement>(null);
 
   const handleVideoUpload = useCallback(async (file: File, url: string) => {
     setIsUploading(true);
+    
+    // Check file size
+    const maxSize = 100 * 1024 * 1024; // 100MB
+    if (file.size > maxSize) {
+      alert('Video file is too large (>100MB). Please use a smaller video for better performance.');
+      setIsUploading(false);
+      return;
+    }
+
     setVideoFile(file);
     setVideoUrl(url);
 
     // Get video duration
     const video = document.createElement('video');
+    video.preload = 'metadata';
     video.src = url;
     video.onloadedmetadata = () => {
       setVideoDuration(video.duration);
       setIsUploading(false);
       setStep('editor');
+    };
+    video.onerror = () => {
+      alert('Failed to load video. Please try a different file.');
+      setIsUploading(false);
     };
   }, []);
 
@@ -64,9 +77,13 @@ export default function Home() {
 
       const data = await response.json();
       setCaptions(data.captions);
+      
+      if (data.demo) {
+        alert('Using demo captions. For real transcription, configure AssemblyAI API key.');
+      }
     } catch (error) {
       console.error('Auto-generate error:', error);
-      // Use demo captions on error
+      alert('Transcription failed. Using demo captions.');
       setCaptions(getDemoCaptions());
     } finally {
       setIsTranscribing(false);
@@ -81,10 +98,13 @@ export default function Home() {
   const handleBack = useCallback(() => {
     setStep('upload');
     setVideoFile(null);
+    if (videoUrl) {
+      URL.revokeObjectURL(videoUrl);
+    }
     setVideoUrl('');
     setCaptions([]);
     setVideoDuration(0);
-  }, []);
+  }, [videoUrl]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-white overflow-hidden">
@@ -135,7 +155,7 @@ export default function Home() {
 
             <nav className="flex items-center gap-4">
               <a
-                href="https://github.com"
+                href="https://github.com/bhavyasharma5/SimoraAI"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-800/50 hover:bg-slate-800 transition-colors text-sm"
@@ -213,6 +233,24 @@ export default function Home() {
               </div>
 
               <VideoUploader onVideoUpload={handleVideoUpload} isUploading={isUploading} />
+
+              {/* Performance tip */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.3 }}
+                className="mt-6 p-4 rounded-xl bg-blue-500/10 border border-blue-400/30 max-w-2xl mx-auto"
+              >
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-blue-300 text-sm leading-relaxed">
+                      <strong>Pro Tip:</strong> For best performance, use videos under 50MB. 
+                      Large videos may experience playback lag during preview.
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
 
               {/* How it works */}
               <motion.div
@@ -366,48 +404,33 @@ function getDemoCaptions(): Caption[] {
     },
     {
       id: '2',
-      text: 'This is a demo of Hinglish captions',
+      text: 'आप किसी भी style को choose कर सकते हैं',
       startTime: 3.5,
-      endTime: 6,
+      endTime: 7,
       words: [
-        { text: 'This', startTime: 3.5, endTime: 3.8 },
-        { text: 'is', startTime: 3.9, endTime: 4.1 },
-        { text: 'a', startTime: 4.2, endTime: 4.3 },
-        { text: 'demo', startTime: 4.4, endTime: 4.8 },
-        { text: 'of', startTime: 4.9, endTime: 5.1 },
-        { text: 'Hinglish', startTime: 5.2, endTime: 5.6 },
-        { text: 'captions', startTime: 5.7, endTime: 6 },
+        { text: 'आप', startTime: 3.5, endTime: 3.8 },
+        { text: 'किसी', startTime: 3.9, endTime: 4.2 },
+        { text: 'भी', startTime: 4.3, endTime: 4.5 },
+        { text: 'style', startTime: 4.6, endTime: 5 },
+        { text: 'को', startTime: 5.1, endTime: 5.3 },
+        { text: 'choose', startTime: 5.4, endTime: 5.8 },
+        { text: 'कर', startTime: 5.9, endTime: 6.2 },
+        { text: 'सकते', startTime: 6.3, endTime: 6.6 },
+        { text: 'हैं', startTime: 6.7, endTime: 7 },
       ],
     },
     {
       id: '3',
-      text: 'आप किसी भी style को choose कर सकते हैं',
-      startTime: 6.5,
-      endTime: 10,
-      words: [
-        { text: 'आप', startTime: 6.5, endTime: 6.8 },
-        { text: 'किसी', startTime: 6.9, endTime: 7.2 },
-        { text: 'भी', startTime: 7.3, endTime: 7.5 },
-        { text: 'style', startTime: 7.6, endTime: 8 },
-        { text: 'को', startTime: 8.1, endTime: 8.3 },
-        { text: 'choose', startTime: 8.4, endTime: 8.8 },
-        { text: 'कर', startTime: 8.9, endTime: 9.2 },
-        { text: 'सकते', startTime: 9.3, endTime: 9.6 },
-        { text: 'हैं', startTime: 9.7, endTime: 10 },
-      ],
-    },
-    {
-      id: '4',
       text: 'Export your video with beautiful captions!',
-      startTime: 10.5,
-      endTime: 14,
+      startTime: 7.5,
+      endTime: 11,
       words: [
-        { text: 'Export', startTime: 10.5, endTime: 11 },
-        { text: 'your', startTime: 11.1, endTime: 11.4 },
-        { text: 'video', startTime: 11.5, endTime: 11.9 },
-        { text: 'with', startTime: 12, endTime: 12.3 },
-        { text: 'beautiful', startTime: 12.4, endTime: 13 },
-        { text: 'captions!', startTime: 13.1, endTime: 14 },
+        { text: 'Export', startTime: 7.5, endTime: 8 },
+        { text: 'your', startTime: 8.1, endTime: 8.4 },
+        { text: 'video', startTime: 8.5, endTime: 8.9 },
+        { text: 'with', startTime: 9, endTime: 9.3 },
+        { text: 'beautiful', startTime: 9.4, endTime: 10 },
+        { text: 'captions!', startTime: 10.1, endTime: 11 },
       ],
     },
   ];

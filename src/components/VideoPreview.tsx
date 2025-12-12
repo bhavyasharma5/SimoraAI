@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Play, Pause, RotateCcw, Volume2, VolumeX, Maximize2 } from 'lucide-react';
 import { Caption, CaptionStyle } from '@/types';
@@ -32,29 +32,41 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [showOverlay, setShowOverlay] = useState(true);
 
   // Handle seek
   useEffect(() => {
     if (seekTo !== undefined && videoRef.current) {
       videoRef.current.currentTime = seekTo;
-      setCurrentTime(seekTo);
     }
   }, [seekTo]);
 
-  // Update time
+  // Update time - throttled to reduce re-renders
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
+    let rafId: number;
     const handleTimeUpdate = () => {
-      const time = video.currentTime;
-      setCurrentTime(time);
-      onTimeUpdate?.(time);
+      rafId = requestAnimationFrame(() => {
+        const time = video.currentTime;
+        setCurrentTime(time);
+        onTimeUpdate?.(time);
+      });
     };
 
-    const handlePlay = () => setIsPlaying(true);
-    const handlePause = () => setIsPlaying(false);
-    const handleEnded = () => setIsPlaying(false);
+    const handlePlay = () => {
+      setIsPlaying(true);
+      setShowOverlay(false);
+    };
+    const handlePause = () => {
+      setIsPlaying(false);
+      setShowOverlay(true);
+    };
+    const handleEnded = () => {
+      setIsPlaying(false);
+      setShowOverlay(true);
+    };
 
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('play', handlePlay);
@@ -62,6 +74,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     video.addEventListener('ended', handleEnded);
 
     return () => {
+      cancelAnimationFrame(rafId);
       video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('play', handlePlay);
       video.removeEventListener('pause', handlePause);
@@ -83,14 +96,12 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     const time = parseFloat(e.target.value);
     if (videoRef.current) {
       videoRef.current.currentTime = time;
-      setCurrentTime(time);
     }
   }, []);
 
   const restart = useCallback(() => {
     if (videoRef.current) {
       videoRef.current.currentTime = 0;
-      setCurrentTime(0);
     }
   }, []);
 
@@ -118,18 +129,16 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
 
   const progress = (currentTime / duration) * 100;
 
-  // Get active caption
-  const activeCaption = captions.find(
-    (cap) => currentTime >= cap.startTime && currentTime <= cap.endTime
-  );
+  // Memoize active caption to reduce re-renders
+  const activeCaption = useMemo(() => {
+    return captions.find(
+      (cap) => currentTime >= cap.startTime && currentTime <= cap.endTime
+    );
+  }, [captions, currentTime]);
 
   return (
     <div ref={containerRef} className="w-full">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="relative rounded-2xl overflow-hidden bg-black shadow-2xl"
-      >
+      <div className="relative rounded-2xl overflow-hidden bg-black shadow-2xl">
         {/* Video Container */}
         <div className="relative aspect-video bg-black">
           <video
@@ -137,10 +146,11 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
             src={videoUrl}
             className="w-full h-full object-contain"
             playsInline
-            preload="metadata"
+            preload="auto"
+            muted={isMuted}
           />
 
-          {/* Caption Overlay */}
+          {/* Caption Overlay - Memoized */}
           {activeCaption && (
             <CaptionOverlay
               caption={activeCaption}
@@ -150,18 +160,16 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
           )}
 
           {/* Play/Pause Overlay */}
-          <div
-            className="absolute inset-0 flex items-center justify-center cursor-pointer group"
-            onClick={togglePlay}
-          >
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: isPlaying ? 0 : 1 }}
-              className="bg-black/40 backdrop-blur-sm rounded-full p-6 group-hover:bg-black/60 transition-colors"
+          {showOverlay && (
+            <div
+              className="absolute inset-0 flex items-center justify-center cursor-pointer group bg-black/20"
+              onClick={togglePlay}
             >
-              <Play className="w-12 h-12 text-white ml-1" fill="white" />
-            </motion.div>
-          </div>
+              <div className="bg-black/60 backdrop-blur-sm rounded-full p-6 group-hover:bg-black/80 transition-colors">
+                <Play className="w-12 h-12 text-white ml-1" fill="white" />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Controls */}
@@ -169,10 +177,9 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
           {/* Progress Bar */}
           <div className="relative group mb-4">
             <div className="h-1 bg-white/20 rounded-full overflow-hidden">
-              <motion.div
-                className="h-full bg-gradient-to-r from-amber-400 to-orange-500"
+              <div
+                className="h-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all duration-100"
                 style={{ width: `${progress}%` }}
-                transition={{ duration: 0.1 }}
               />
             </div>
             <input
@@ -196,10 +203,8 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
           {/* Control Buttons */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <motion.button
+              <button
                 onClick={togglePlay}
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
                 className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
               >
                 {isPlaying ? (
@@ -207,21 +212,17 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
                 ) : (
                   <Play className="w-5 h-5 text-white" fill="white" />
                 )}
-              </motion.button>
+              </button>
 
-              <motion.button
+              <button
                 onClick={restart}
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
                 className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
               >
                 <RotateCcw className="w-5 h-5 text-white" />
-              </motion.button>
+              </button>
 
-              <motion.button
+              <button
                 onClick={toggleMute}
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
                 className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
               >
                 {isMuted ? (
@@ -229,7 +230,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
                 ) : (
                   <Volume2 className="w-5 h-5 text-white" />
                 )}
-              </motion.button>
+              </button>
 
               <span className="text-white/80 text-sm font-mono">
                 {formatTime(currentTime)} / {formatTime(duration)}
@@ -237,34 +238,26 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
             </div>
 
             <div className="flex items-center gap-3">
-              <motion.button
+              <button
                 onClick={toggleFullscreen}
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
                 className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
               >
                 <Maximize2 className="w-5 h-5 text-white" />
-              </motion.button>
+              </button>
             </div>
           </div>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 };
 
-// Caption Overlay Component
-interface CaptionOverlayProps {
+// Memoized Caption Overlay Component
+const CaptionOverlay = React.memo<{
   caption: Caption;
   captionStyle: CaptionStyle;
   currentTime: number;
-}
-
-const CaptionOverlay: React.FC<CaptionOverlayProps> = ({
-  caption,
-  captionStyle,
-  currentTime,
-}) => {
+}>(({ caption, captionStyle, currentTime }) => {
   const styleConfig = getCaptionStyle(captionStyle);
 
   const getPositionStyles = (): React.CSSProperties => {
@@ -282,10 +275,7 @@ const CaptionOverlay: React.FC<CaptionOverlayProps> = ({
   // Karaoke style with word-level highlighting
   if (captionStyle === 'karaoke' && caption.words && caption.words.length > 0) {
     return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
+      <div
         style={{
           position: 'absolute',
           display: 'flex',
@@ -293,6 +283,7 @@ const CaptionOverlay: React.FC<CaptionOverlayProps> = ({
           alignItems: 'center',
           padding: styleConfig.padding,
           pointerEvents: 'none',
+          willChange: 'transform',
           ...getPositionStyles(),
         }}
       >
@@ -312,16 +303,16 @@ const CaptionOverlay: React.FC<CaptionOverlayProps> = ({
 
             return (
               <span
-                key={index}
+                key={`${caption.id}-${index}`}
                 style={{
                   fontSize: styleConfig.fontSize,
                   fontFamily: styleConfig.fontFamily,
                   fontWeight: 700,
                   color: isPast || isActive ? '#FBBF24' : '#FFFFFF',
-                  transform: isActive ? 'scale(1.15)' : 'scale(1)',
-                  transition: 'all 0.2s ease',
+                  transform: isActive ? 'scale(1.1)' : 'scale(1)',
                   display: 'inline-block',
                   position: 'relative',
+                  transition: 'none', // Remove transition for better performance
                 }}
               >
                 {word.text}
@@ -342,23 +333,20 @@ const CaptionOverlay: React.FC<CaptionOverlayProps> = ({
             );
           })}
         </div>
-      </motion.div>
+      </div>
     );
   }
 
-  // Standard caption styles
+  // Standard caption styles - no animations for better performance
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      transition={{ duration: 0.3 }}
+    <div
       style={{
         position: 'absolute',
         display: 'flex',
         justifyContent: 'center',
         padding: '0 40px',
         pointerEvents: 'none',
+        willChange: 'transform',
         ...getPositionStyles(),
       }}
     >
@@ -380,6 +368,8 @@ const CaptionOverlay: React.FC<CaptionOverlayProps> = ({
       >
         {caption.text}
       </div>
-    </motion.div>
+    </div>
   );
-};
+});
+
+CaptionOverlay.displayName = 'CaptionOverlay';
