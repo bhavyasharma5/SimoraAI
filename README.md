@@ -30,8 +30,8 @@
 |------------|---------|
 | **Next.js 16** | Full-stack React framework |
 | **TypeScript** | Type safety and better DX |
-| **Remotion** | Video rendering and preview |
-| **OpenAI Whisper** | Speech-to-text transcription |
+| **Remotion** | Video rendering engine |
+| **AssemblyAI** | Speech-to-text transcription (FREE) |
 | **Tailwind CSS** | Styling and responsive design |
 | **Framer Motion** | Smooth animations |
 | **Noto Sans Devanagari** | Hinglish font support |
@@ -40,7 +40,7 @@
 
 - **Node.js** >= 18.0.0
 - **npm** or **yarn**
-- **OpenAI API Key** (for caption generation)
+- **AssemblyAI API Key** (FREE - 100 hours/month)
 - **FFmpeg** (for video rendering - auto-installed with Remotion)
 
 ## 🚀 Quick Start
@@ -64,8 +64,9 @@ npm install
 # Copy the example env file
 cp env.example .env.local
 
-# Edit .env.local and add your OpenAI API key
-OPENAI_API_KEY=sk-your-api-key-here
+# Edit .env.local and add your AssemblyAI API key (FREE)
+# Get from: https://www.assemblyai.com/dashboard/signup
+ASSEMBLYAI_API_KEY=your-assemblyai-key-here
 ```
 
 ### 4. Run the development server
@@ -109,25 +110,25 @@ Select from 4 beautiful caption styles:
 
 ## 🎯 Caption Generation Method
 
-### OpenAI Whisper API
+### AssemblyAI API (FREE - 100 hours/month)
 
-This project uses **OpenAI's Whisper API** for speech-to-text transcription:
+This project uses **AssemblyAI's Speech-to-Text API** for transcription:
 
 ```typescript
-const transcription = await openai.audio.transcriptions.create({
-  file: audioFile,
-  model: 'whisper-1',
-  response_format: 'verbose_json',
-  timestamp_granularities: ['word', 'segment'],
-  language: 'hi', // Supports Hindi/Hinglish
+const transcript = await client.transcripts.transcribe({
+  audio: uploadUrl,
+  language_detection: true, // Auto-detect Hindi/English
+  punctuate: true,
+  format_text: true,
 });
 ```
 
-**Why Whisper?**
-- ✅ Excellent accuracy for Hindi and Hinglish content
+**Why AssemblyAI?**
+- ✅ 100 hours FREE per month (no credit card needed!)
 - ✅ Word-level timestamps for karaoke highlighting
-- ✅ Fast processing through cloud API
-- ✅ Handles mixed-language audio seamlessly
+- ✅ Auto language detection for Hinglish
+- ✅ Fast cloud processing
+- ✅ Easy integration
 
 ### Demo Mode
 

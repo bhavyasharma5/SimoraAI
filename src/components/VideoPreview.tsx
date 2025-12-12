@@ -1,12 +1,11 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Player, PlayerRef } from '@remotion/player';
 import { motion } from 'framer-motion';
 import { Play, Pause, RotateCcw, Volume2, VolumeX, Maximize2 } from 'lucide-react';
-import { CaptionedVideo } from '@/remotion/CaptionedVideo';
 import { Caption, CaptionStyle } from '@/types';
 import { cn, formatTime } from '@/lib/utils';
+import { getCaptionStyle } from '@/lib/caption-styles';
 
 interface VideoPreviewProps {
   videoUrl: string;
@@ -27,64 +26,79 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   onTimeUpdate,
   seekTo,
 }) => {
-  const playerRef = useRef<PlayerRef>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const durationInFrames = Math.max(Math.ceil(duration * fps), 1);
-
+  // Handle seek
   useEffect(() => {
-    if (seekTo !== undefined && playerRef.current) {
-      const frame = Math.floor(seekTo * fps);
-      playerRef.current.seekTo(frame);
+    if (seekTo !== undefined && videoRef.current) {
+      videoRef.current.currentTime = seekTo;
       setCurrentTime(seekTo);
     }
-  }, [seekTo, fps]);
+  }, [seekTo]);
 
+  // Update time
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (playerRef.current) {
-        const frame = playerRef.current.getCurrentFrame();
-        const time = frame / fps;
-        setCurrentTime(time);
-        onTimeUpdate?.(time);
-      }
-    }, 100);
+    const video = videoRef.current;
+    if (!video) return;
 
-    return () => clearInterval(interval);
-  }, [fps, onTimeUpdate]);
+    const handleTimeUpdate = () => {
+      const time = video.currentTime;
+      setCurrentTime(time);
+      onTimeUpdate?.(time);
+    };
+
+    const handlePlay = () => setIsPlaying(true);
+    const handlePause = () => setIsPlaying(false);
+    const handleEnded = () => setIsPlaying(false);
+
+    video.addEventListener('timeupdate', handleTimeUpdate);
+    video.addEventListener('play', handlePlay);
+    video.addEventListener('pause', handlePause);
+    video.addEventListener('ended', handleEnded);
+
+    return () => {
+      video.removeEventListener('timeupdate', handleTimeUpdate);
+      video.removeEventListener('play', handlePlay);
+      video.removeEventListener('pause', handlePause);
+      video.removeEventListener('ended', handleEnded);
+    };
+  }, [onTimeUpdate]);
 
   const togglePlay = useCallback(() => {
-    if (playerRef.current) {
+    if (videoRef.current) {
       if (isPlaying) {
-        playerRef.current.pause();
+        videoRef.current.pause();
       } else {
-        playerRef.current.play();
+        videoRef.current.play();
       }
-      setIsPlaying(!isPlaying);
     }
   }, [isPlaying]);
 
   const handleSeek = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const frame = parseInt(e.target.value);
-    if (playerRef.current) {
-      playerRef.current.seekTo(frame);
-      setCurrentTime(frame / fps);
+    const time = parseFloat(e.target.value);
+    if (videoRef.current) {
+      videoRef.current.currentTime = time;
+      setCurrentTime(time);
     }
-  }, [fps]);
+  }, []);
 
   const restart = useCallback(() => {
-    if (playerRef.current) {
-      playerRef.current.seekTo(0);
+    if (videoRef.current) {
+      videoRef.current.currentTime = 0;
       setCurrentTime(0);
     }
   }, []);
 
   const toggleMute = useCallback(() => {
-    setIsMuted(!isMuted);
+    if (videoRef.current) {
+      videoRef.current.muted = !isMuted;
+      setIsMuted(!isMuted);
+    }
   }, [isMuted]);
 
   const toggleFullscreen = useCallback(() => {
@@ -104,6 +118,11 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
 
   const progress = (currentTime / duration) * 100;
 
+  // Get active caption
+  const activeCaption = captions.find(
+    (cap) => currentTime >= cap.startTime && currentTime <= cap.endTime
+  );
+
   return (
     <div ref={containerRef} className="w-full">
       <motion.div
@@ -111,28 +130,24 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
         animate={{ opacity: 1, scale: 1 }}
         className="relative rounded-2xl overflow-hidden bg-black shadow-2xl"
       >
-        {/* Player Container */}
-        <div className="relative aspect-video">
-          <Player
-            ref={playerRef}
-            component={CaptionedVideo}
-            inputProps={{
-              videoSrc: videoUrl,
-              captions,
-              captionStyle,
-            }}
-            durationInFrames={durationInFrames}
-            fps={fps}
-            compositionWidth={1920}
-            compositionHeight={1080}
-            style={{
-              width: '100%',
-              height: '100%',
-            }}
-            controls={false}
-            loop={false}
-            autoPlay={false}
+        {/* Video Container */}
+        <div className="relative aspect-video bg-black">
+          <video
+            ref={videoRef}
+            src={videoUrl}
+            className="w-full h-full object-contain"
+            playsInline
+            preload="metadata"
           />
+
+          {/* Caption Overlay */}
+          {activeCaption && (
+            <CaptionOverlay
+              caption={activeCaption}
+              captionStyle={captionStyle}
+              currentTime={currentTime}
+            />
+          )}
 
           {/* Play/Pause Overlay */}
           <div
@@ -163,8 +178,9 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
             <input
               type="range"
               min={0}
-              max={durationInFrames}
-              value={Math.floor(currentTime * fps)}
+              max={duration}
+              step={0.1}
+              value={currentTime}
               onChange={handleSeek}
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
             />
@@ -237,3 +253,133 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   );
 };
 
+// Caption Overlay Component
+interface CaptionOverlayProps {
+  caption: Caption;
+  captionStyle: CaptionStyle;
+  currentTime: number;
+}
+
+const CaptionOverlay: React.FC<CaptionOverlayProps> = ({
+  caption,
+  captionStyle,
+  currentTime,
+}) => {
+  const styleConfig = getCaptionStyle(captionStyle);
+
+  const getPositionStyles = (): React.CSSProperties => {
+    switch (styleConfig.position) {
+      case 'top':
+        return { top: 40, left: 0, right: 0 };
+      case 'center':
+        return { top: '50%', left: 0, right: 0, transform: 'translateY(-50%)' };
+      case 'bottom':
+      default:
+        return { bottom: 80, left: 0, right: 0 };
+    }
+  };
+
+  // Karaoke style with word-level highlighting
+  if (captionStyle === 'karaoke' && caption.words && caption.words.length > 0) {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        style={{
+          position: 'absolute',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: styleConfig.padding,
+          pointerEvents: 'none',
+          ...getPositionStyles(),
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            justifyContent: 'center',
+            gap: '8px',
+            maxWidth: '80%',
+            textShadow: '2px 2px 8px rgba(0,0,0,0.8), 0 0 20px rgba(0,0,0,0.5)',
+          }}
+        >
+          {caption.words.map((word, index) => {
+            const isActive = currentTime >= word.startTime && currentTime <= word.endTime;
+            const isPast = currentTime > word.endTime;
+
+            return (
+              <span
+                key={index}
+                style={{
+                  fontSize: styleConfig.fontSize,
+                  fontFamily: styleConfig.fontFamily,
+                  fontWeight: 700,
+                  color: isPast || isActive ? '#FBBF24' : '#FFFFFF',
+                  transform: isActive ? 'scale(1.15)' : 'scale(1)',
+                  transition: 'all 0.2s ease',
+                  display: 'inline-block',
+                  position: 'relative',
+                }}
+              >
+                {word.text}
+                {isActive && (
+                  <span
+                    style={{
+                      position: 'absolute',
+                      bottom: -4,
+                      left: 0,
+                      width: '100%',
+                      height: 3,
+                      background: 'linear-gradient(90deg, #FBBF24, #F59E0B)',
+                      borderRadius: 2,
+                    }}
+                  />
+                )}
+              </span>
+            );
+          })}
+        </div>
+      </motion.div>
+    );
+  }
+
+  // Standard caption styles
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      transition={{ duration: 0.3 }}
+      style={{
+        position: 'absolute',
+        display: 'flex',
+        justifyContent: 'center',
+        padding: '0 40px',
+        pointerEvents: 'none',
+        ...getPositionStyles(),
+      }}
+    >
+      <div
+        style={{
+          background: styleConfig.backgroundColor,
+          color: styleConfig.textColor,
+          fontSize: styleConfig.fontSize,
+          fontFamily: styleConfig.fontFamily,
+          padding: `${styleConfig.padding}px ${styleConfig.padding * 1.5}px`,
+          borderRadius: styleConfig.borderRadius,
+          textAlign: 'center',
+          maxWidth: '80%',
+          lineHeight: 1.4,
+          fontWeight: 600,
+          textShadow: captionStyle === 'modern' ? '0 2px 10px rgba(0,0,0,0.3)' : 'none',
+          boxShadow: captionStyle === 'modern' ? '0 10px 40px rgba(0,0,0,0.3)' : 'none',
+        }}
+      >
+        {caption.text}
+      </div>
+    </motion.div>
+  );
+};
