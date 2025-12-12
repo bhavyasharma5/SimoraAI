@@ -1,0 +1,66 @@
+{
+  "captions": [
+    {
+      "id": "1",
+      "text": "नमस्ते! Welcome to Simora AI",
+      "startTime": 0,
+      "endTime": 3,
+      "words": [
+        { "text": "नमस्ते!", "startTime": 0, "endTime": 1 },
+        { "text": "Welcome", "startTime": 1.2, "endTime": 1.8 },
+        { "text": "to", "startTime": 1.9, "endTime": 2.1 },
+        { "text": "Simora", "startTime": 2.2, "endTime": 2.6 },
+        { "text": "AI", "startTime": 2.7, "endTime": 3 }
+      ]
+    },
+    {
+      "id": "2",
+      "text": "This is a demo of Hinglish captions",
+      "startTime": 3.5,
+      "endTime": 6,
+      "words": [
+        { "text": "This", "startTime": 3.5, "endTime": 3.8 },
+        { "text": "is", "startTime": 3.9, "endTime": 4.1 },
+        { "text": "a", "startTime": 4.2, "endTime": 4.3 },
+        { "text": "demo", "startTime": 4.4, "endTime": 4.8 },
+        { "text": "of", "startTime": 4.9, "endTime": 5.1 },
+        { "text": "Hinglish", "startTime": 5.2, "endTime": 5.6 },
+        { "text": "captions", "startTime": 5.7, "endTime": 6 }
+      ]
+    },
+    {
+      "id": "3",
+      "text": "आप किसी भी style को choose कर सकते हैं",
+      "startTime": 6.5,
+      "endTime": 10,
+      "words": [
+        { "text": "आप", "startTime": 6.5, "endTime": 6.8 },
+        { "text": "किसी", "startTime": 6.9, "endTime": 7.2 },
+        { "text": "भी", "startTime": 7.3, "endTime": 7.5 },
+        { "text": "style", "startTime": 7.6, "endTime": 8 },
+        { "text": "को", "startTime": 8.1, "endTime": 8.3 },
+        { "text": "choose", "startTime": 8.4, "endTime": 8.8 },
+        { "text": "कर", "startTime": 8.9, "endTime": 9.2 },
+        { "text": "सकते", "startTime": 9.3, "endTime": 9.6 },
+        { "text": "हैं", "startTime": 9.7, "endTime": 10 }
+      ]
+    },
+    {
+      "id": "4",
+      "text": "Export your video with beautiful captions!",
+      "startTime": 10.5,
+      "endTime": 14,
+      "words": [
+        { "text": "Export", "startTime": 10.5, "endTime": 11 },
+        { "text": "your", "startTime": 11.1, "endTime": 11.4 },
+        { "text": "video", "startTime": 11.5, "endTime": 11.9 },
+        { "text": "with", "startTime": 12, "endTime": 12.3 },
+        { "text": "beautiful", "startTime": 12.4, "endTime": 13 },
+        { "text": "captions!", "startTime": 13.1, "endTime": 14 }
+      ]
+    }
+  ],
+  "language": "hi",
+  "duration": 14
+}
+
