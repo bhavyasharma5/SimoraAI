@@ -10,7 +10,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Simora AI - Auto-generate Beautiful Video Captions",
   description: "Upload your video, let AI transcribe the audio, and render stunning captions with multiple styles. Perfect for Hinglish content!",
-  keywords: ["video captions", "AI transcription", "Hinglish", "Remotion", "Whisper AI", "subtitle generator"],
+  keywords: ["video captions", "AI transcription", "Hinglish", "Remotion", "AssemblyAI", "subtitle generator"],
   authors: [{ name: "Simora AI" }],
   openGraph: {
     title: "Simora AI - Auto-generate Beautiful Video Captions",

@@ -219,7 +219,7 @@ export default function Home() {
                   transition={{ delay: 0.2 }}
                   className="flex flex-wrap justify-center gap-3 mt-8"
                 >
-                  {['AssemblyAI (FREE)', 'Hinglish Support', '4 Caption Styles', 'Real-time Preview'].map(
+                  {['AssemblyAI', 'Hinglish Support', '4 Caption Styles', 'Real-time Preview'].map(
                     (feature, i) => (
                       <span
                         key={feature}
